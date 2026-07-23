@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cipher Suite — أداة التشفير وفك التشفير الاحترافية</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E13;
+    --panel:#12161D;
+    --panel-2:#171C25;
+    --line:#242B36;
+    --brass:#C9A24B;
+    --brass-dim:#8A712F;
+    --cyan:#4FD1C5;
+    --text:#EDEAE2;
+    --muted:#8B95A1;
+    --danger:#E0665A;
+    --radius:10px;
+    --mono:'JetBrains Mono', monospace;
+    --display:'Space Grotesk', 'Cairo', sans-serif;
+    --body:'Cairo', 'Space Grotesk', sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(circle at 15% 0%, rgba(201,162,75,0.07), transparent 40%),
+      radial-gradient(circle at 85% 20%, rgba(79,209,197,0.06), transparent 40%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--body);
+    min-height:100vh;
+    position:relative;
+    overflow-x:hidden;
+  }
+  /* faint cipher-grid backdrop */
+  body::before{
+    content:"";
+    position:fixed;
+    inset:0;
+    background-image:
+      linear-gradient(rgba(201,162,75,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(201,162,75,0.035) 1px, transparent 1px);
+    background-size:42px 42px;
+    mask-image:radial-gradient(ellipse at center, black 0%, transparent 75%);
+    pointer-events:none;
+    z-index:0;
+  }
+  .wrap{
+    position:relative;
+    z-index:1;
+    max-width:1080px;
+    margin:0 auto;
+    padding:56px 24px 80px;
+  }
+
+  /* ---------- Hero ---------- */
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:12px;
+    letter-spacing:.18em;
+    color:var(--brass);
+    text-transform:uppercase;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .eyebrow::before{
+    content:"";
+    width:22px;height:1px;
+    background:var(--brass);
+    display:inline-block;
+  }
+  h1{
+    font-family:var(--display);
+    font-weight:700;
+    font-size:clamp(32px, 5vw, 52px);
+    line-height:1.08;
+    margin:0 0 14px;
+    letter-spacing:-0.01em;
+  }
+  #scramble{
+    font-family:var(--mono);
+    color:var(--cyan);
+  }
+  .lede{
+    font-size:16px;
+    color:var(--muted);
+    max-width:620px;
+    line-height:1.75;
+    margin:0 0 40px;
+  }
+  .lede b{color:var(--text); font-weight:600;}
+
+  /* ---------- Panel shell ---------- */
+  .console{
+    background:linear-gradient(180deg, var(--panel), var(--panel-2));
+    border:1px solid var(--line);
+    border-radius:16px;
+    overflow:hidden;
+    box-shadow:0 30px 60px -30px rgba(0,0,0,0.6);
+  }
+  .console-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 22px;
+    border-bottom:1px solid var(--line);
+    background:rgba(0,0,0,0.15);
+  }
+  .console-head .dots{display:flex; gap:6px;}
+  .console-head .dots span{
+    width:9px;height:9px;border-radius:50%;
+    background:var(--line);
+  }
+  .console-head .label{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--muted);
+    letter-spacing:.08em;
+  }
+
+  .grid{
+    display:grid;
+    grid-template-columns:1.15fr 1fr;
+    gap:0;
+  }
+  @media (max-width:820px){ .grid{grid-template-columns:1fr;} }
+
+  .col{ padding:28px; }
+  .col + .col{ border-inline-start:1px solid var(--line); }
+  @media (max-width:820px){ .col + .col{ border-inline-start:none; border-top:1px solid var(--line);} }
+
+  /* ---------- Algorithm selector (key-ring style) ---------- */
+  .field-label{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--muted);
+    margin-bottom:10px;
+    display:block;
+  }
+  .cipher-ring{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin-bottom:24px;
+  }
+  .cipher-pill{
+    font-family:var(--mono);
+    font-size:12.5px;
+    padding:8px 13px;
+    border-radius:999px;
+    border:1px solid var(--line);
+    background:rgba(255,255,255,0.02);
+    color:var(--muted);
+    cursor:pointer;
+    transition:all .15s ease;
+    user-select:none;
+  }
+  .cipher-pill:hover{ border-color:var(--brass-dim); color:var(--text); }
+  .cipher-pill.active{
+    background:rgba(201,162,75,0.12);
+    border-color:var(--brass);
+    color:var(--brass);
+  }
+
+  .algo-info{
+    display:flex;
+    gap:16px;
+    padding:12px 14px;
+    background:rgba(79,209,197,0.05);
+    border:1px solid rgba(79,209,197,0.18);
+    border-radius:8px;
+    margin-bottom:24px;
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .algo-info b{ color:var(--cyan); font-weight:600; }
+  .algo-info .tag{
+    font-family:var(--mono);
+    font-size:10.5px;
+    padding:2px 8px;
+    border-radius:5px;
+    background:rgba(79,209,197,0.14);
+    color:var(--cyan);
+    align-self:flex-start;
+    white-space:nowrap;
+  }
+
+  input[type=text], textarea{
+    width:100%;
+    background:#0D1116;
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--text);
+    font-family:var(--mono);
+    font-size:14px;
+    padding:12px 14px;
+    resize:vertical;
+    transition:border-color .15s ease;
+  }
+  input[type=text]:focus, textarea:focus{
+    outline:none;
+    border-color:var(--brass);
+  }
+  textarea{ min-height:120px; line-height:1.6; }
+  .form-group{ margin-bottom:20px; }
+
+  .key-row{ display:flex; gap:10px; align-items:flex-end; }
+  .key-row .form-group{ flex:1; margin-bottom:0; }
+  .gen-key{
+    font-family:var(--mono);
+    font-size:12px;
+    padding:11px 14px;
+    border-radius:8px;
+    border:1px solid var(--line);
+    background:transparent;
+    color:var(--muted);
+    cursor:pointer;
+    white-space:nowrap;
+    transition:all .15s ease;
+  }
+  .gen-key:hover{ border-color:var(--brass); color:var(--brass); }
+
+  .buttons{
+    display:flex;
+    gap:10px;
+    margin-top:24px;
+  }
+  button{ font-family:var(--body); }
+  .btn{
+    flex:1;
+    padding:13px 18px;
+    border-radius:8px;
+    border:1px solid transparent;
+    font-weight:600;
+    font-size:14.5px;
+    cursor:pointer;
+    transition:all .15s ease;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+  }
+  .btn-primary{
+    background:var(--brass);
+    color:#1A1503;
+  }
+  .btn-primary:hover{ background:#DDB65C; transform:translateY(-1px); }
+  .btn-secondary{
+    background:transparent;
+    border-color:var(--line);
+    color:var(--text);
+  }
+  .btn-secondary:hover{ border-color:var(--cyan); color:var(--cyan); }
+  .btn:active{ transform:translateY(0); }
+  .btn[disabled]{ opacity:.5; cursor:not-allowed; transform:none; }
+
+  .output-wrap{ position:relative; }
+  #output-text{ background:#0A0D11; min-height:170px; }
+  .copy-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:10px;
+  }
+  .copy-btn{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--muted);
+    background:none;
+    border:none;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:4px 0;
+  }
+  .copy-btn:hover{ color:var(--cyan); }
+  .status{
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--muted);
+  }
+  .status.ok{ color:var(--cyan); }
+  .status.err{ color:var(--danger); }
+
+  .loader{
+    width:16px;height:16px;
+    border:2px solid rgba(255,255,255,0.15);
+    border-top-color:var(--brass);
+    border-radius:50%;
+    animation:spin .7s linear infinite;
+  }
+  .hidden{ display:none !important; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .foot-note{
+    margin-top:26px;
+    font-size:12px;
+    color:var(--muted);
+    line-height:1.8;
+    padding-top:18px;
+    border-top:1px dashed var(--line);
+  }
+  .foot-note b{ color:var(--brass); }
+
+  footer{
+    text-align:center;
+    margin-top:34px;
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:#4B5563;
+    letter-spacing:.05em;
+  }
+
+  ::selection{ background:rgba(201,162,75,0.35); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="eyebrow">CIPHER SUITE — نظام تشفير موحّد</div>
+  <h1>أداة التشفير <span id="scramble">وفك التشفير</span></h1>
+  <p class="lede">
+    تسع خوارزميات في مكان واحد، من الشيفرات الكلاسيكية زي <b>قيصر</b> و<b>Playfair</b>،
+    لمعايير التشفير الحديثة زي <b>AES</b> و<b>RSA</b>. اختر الخوارزمية، ادخل المفتاح، وشغّل التشفير أو فك التشفير فورًا داخل المتصفح.
+  </p>
+
+  <div class="console">
+    <div class="console-head">
+      <div class="dots"><span></span><span></span><span></span></div>
+      <div class="label">crypto://local-session</div>
+    </div>
+
+    <div class="grid">
+      <!-- LEFT: Controls -->
+      <div class="col">
+        <span class="field-label">الخوارزمية</span>
+        <div class="cipher-ring" id="cipher-ring">
+          <div class="cipher-pill active" data-algo="caesar">Caesar</div>
+          <div class="cipher-pill" data-algo="substitution">Substitution</div>
+          <div class="cipher-pill" data-algo="playfair">Playfair</div>
+          <div class="cipher-pill" data-algo="hill">Hill</div>
+          <div class="cipher-pill" data-algo="simpleblock">Simple Block</div>
+          <div class="cipher-pill" data-algo="aes">AES</div>
+          <div class="cipher-pill" data-algo="des">DES</div>
+          <div class="cipher-pill" data-algo="3des">3DES</div>
+          <div class="cipher-pill" data-algo="rsa">RSA</div>
+        </div>
+
+        <div class="algo-info" id="algo-info">
+          <span class="tag">كلاسيكي</span>
+          <div><b>Caesar Cipher</b> — إزاحة كل حرف بعدد ثابت. المفتاح رقم صحيح (مثلاً 3).</div>
+        </div>
+
+        <div class="key-row form-group">
+          <div class="form-group">
+            <span class="field-label" id="key-label">المفتاح</span>
+            <input type="text" id="key" placeholder="مثال: 3">
+          </div>
+          <button class="gen-key" id="gen-key-btn" title="توليد مفتاح تلقائي">توليد ↻</button>
+        </div>
+
+        <div class="form-group">
+          <span class="field-label">النص</span>
+          <textarea id="input-text" placeholder="اكتب النص المراد تشفيره أو فك تشفيره..."></textarea>
+        </div>
+
+        <div class="buttons">
+          <button class="btn btn-primary" id="encrypt-btn">
+            <span>تشفير</span>
+          </button>
+          <button class="btn btn-secondary" id="decrypt-btn">
+            <span>فك التشفير</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- RIGHT: Output -->
+      <div class="col">
+        <span class="field-label">النتيجة</span>
+        <div class="output-wrap">
+          <textarea id="output-text" readonly placeholder="النتيجة هتظهر هنا..."></textarea>
+        </div>
+        <div class="copy-row">
+          <button class="copy-btn" id="copy-btn">📋 نسخ النتيجة</button>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <div id="loader" class="loader hidden"></div>
+            <span class="status" id="status"></span>
+          </div>
+        </div>
+
+        <div class="foot-note">
+          <b>ملاحظة أمنية:</b> الشيفرات الكلاسيكية (Caesar, Substitution, Playfair, Hill) للأغراض التعليمية فقط وسهلة الكسر.
+          لأي استخدام حقيقي يتطلب حماية بيانات، اعتمد على <b>AES-256</b>. تنفيذ RSA هنا مبسّط لأغراض العرض التعليمي بمفاتيح صغيرة،
+          وليس بديلاً عن مكتبة RSA معتمدة في الإنتاج.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <footer>ALL PROCESSING HAPPENS LOCALLY IN YOUR BROWSER — NO DATA LEAVES THIS PAGE</footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+<script>
+/* ============================================================
+   Hero scramble/decode animation
+   ============================================================ */
+(function(){
+  const el = document.getElementById('scramble');
+  const finalText = "وفك التشفير";
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ٠١٢٣٤٥٦٧٨٩@#%&$*";
+  let frame = 0;
+  const totalFrames = 24;
+  function tick(){
+    if(frame >= totalFrames){ el.textContent = finalText; return; }
+    let out = "";
+    const reveal = Math.floor((frame/totalFrames) * finalText.length);
+    for(let i=0;i<finalText.length;i++){
+      if(finalText[i] === " "){ out += " "; continue; }
+      out += i < reveal ? finalText[i] : chars[Math.floor(Math.random()*chars.length)];
+    }
+    el.textContent = out;
+    frame++;
+    setTimeout(tick, 45);
+  }
+  tick();
+})();
+
+/* ============================================================
+   Algorithm metadata
+   ============================================================ */
+const ALGO_META = {
+  caesar:       { tag:"كلاسيكي", label:"المفتاح (رقم الإزاحة)", desc:"<b>Caesar Cipher</b> — إزاحة كل حرف بعدد ثابت. المفتاح رقم صحيح (مثلاً 3)." },
+  substitution: { tag:"كلاسيكي", label:"مفتاح الاستبدال (26 حرف)", desc:"<b>Substitution Cipher</b> — استبدال كل حرف بحرف آخر حسب أبجدية مُعاد ترتيبها (26 حرف فريد)." },
+  playfair:     { tag:"كلاسيكي", label:"الكلمة المفتاحية", desc:"<b>Playfair Cipher</b> — تشفير أزواج الحروف باستخدام مصفوفة 5×5 مبنية من كلمة مفتاحية." },
+  hill:         { tag:"كلاسيكي", label:"مصفوفة المفتاح (مثال: 3 3 2 5)", desc:"<b>Hill Cipher</b> — تشفير قائم على الجبر الخطي، المفتاح مصفوفة 2×2 من 4 أرقام مفصولة بمسافات." },
+  simpleblock:  { tag:"تعليمي", label:"مفتاح XOR (نص)", desc:"<b>Simple Block Cipher</b> — تشفير XOR بسيط على كتل من النص، لأغراض توضيح فكرة كتل التشفير." },
+  aes:          { tag:"حديث · متماثل", label:"كلمة المرور (Passphrase)", desc:"<b>AES-256</b> — معيار التشفير المتقدم، الأكثر استخدامًا حاليًا لحماية البيانات." },
+  des:          { tag:"حديث · متماثل", label:"كلمة المرور (Passphrase)", desc:"<b>DES</b> — خوارزمية أقدم بمفتاح 56-بت، تعتبر ضعيفة الآن وغير مناسبة للاستخدام الحقيقي." },
+  "3des":       { tag:"حديث · متماثل", label:"كلمة المرور (Passphrase)", desc:"<b>Triple DES</b> — تطبيق DES ثلاث مرات لتقوية الأمان، أبطأ وأقل استخدامًا من AES." },
+  rsa:          { tag:"حديث · لامتماثل", label:"لا يلزم إدخال — استخدم زر التوليد", desc:"<b>RSA (تعليمي)</b> — تشفير بمفتاح عام/خاص بأعداد أولية صغيرة لأغراض العرض فقط." },
+};
+
+let currentAlgo = "caesar";
+let rsaKeys = null; // {n, e, d}
+
+const ring = document.getElementById('cipher-ring');
+const keyInput = document.getElementById('key');
+const keyLabel = document.getElementById('key-label');
+const algoInfo = document.getElementById('algo-info');
+const statusEl = document.getElementById('status');
+const loader = document.getElementById('loader');
+const genKeyBtn = document.getElementById('gen-key-btn');
+
+ring.addEventListener('click', (e) => {
+  const pill = e.target.closest('.cipher-pill');
+  if(!pill) return;
+  document.querySelectorAll('.cipher-pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  currentAlgo = pill.dataset.algo;
+  updateAlgoInfo();
+});
+
+function updateAlgoInfo(){
+  const m = ALGO_META[currentAlgo];
+  keyLabel.textContent = m.label;
+  algoInfo.innerHTML = `<span class="tag">${m.tag}</span><div>${m.desc}</div>`;
+  keyInput.value = "";
+  keyInput.disabled = (currentAlgo === "rsa");
+  setStatus("");
+}
+updateAlgoInfo();
+
+function setStatus(msg, type){
+  statusEl.textContent = msg;
+  statusEl.className = "status" + (type ? " " + type : "");
+}
+
+function withLoader(fn){
+  loader.classList.remove('hidden');
+  setTimeout(() => {
+    try{ fn(); }
+    finally{ loader.classList.add('hidden'); }
+  }, 120);
+}
+
+/* ============================================================
+   Classical ciphers
+   ============================================================ */
+const AR_ALPHA = "ابتثجحخدذرزسشصضطظعغفقكلمنهوي";
+const EN_ALPHA = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+function caesarShift(text, shift, decrypt){
+  shift = ((parseInt(shift,10) || 0) % 26 + 26) % 26;
+  if(decrypt) shift = (26 - shift) % 26;
+  return text.split('').map(ch => {
+    if(/[A-Z]/.test(ch)) return EN_ALPHA[(EN_ALPHA.indexOf(ch) + shift) % 26];
+    if(/[a-z]/.test(ch)) return EN_ALPHA[(EN_ALPHA.indexOf(ch.toUpperCase()) + shift) % 26].toLowerCase();
+    const ai = AR_ALPHA.indexOf(ch);
+    if(ai !== -1) return AR_ALPHA[(ai + shift) % 26];
+    return ch;
+  }).join('');
+}
+
+function buildSubMap(key){
+  const clean = [...new Set(key.toUpperCase().replace(/[^A-Z]/g,''))];
+  const full = clean.concat(EN_ALPHA.split('').filter(c => !clean.includes(c)));
+  return full.slice(0,26).join('');
+}
+function substitutionCipher(text, key, decrypt){
+  if(!key || key.replace(/[^A-Za-z]/g,'').length < 1) throw new Error("محتاج مفتاح استبدال صالح (حروف إنجليزية)");
+  const map = buildSubMap(key);
+  const fromA = decrypt ? map : EN_ALPHA;
+  const toA   = decrypt ? EN_ALPHA : map;
+  return text.split('').map(ch => {
+    const upper = ch.toUpperCase();
+    const idx = fromA.indexOf(upper);
+    if(idx === -1) return ch;
+    const out = toA[idx];
+    return ch === upper ? out : out.toLowerCase();
+  }).join('');
+}
+
+function playfairMatrix(key){
+  const prep = key.toUpperCase().replace(/J/g,'I').replace(/[^A-Z]/g,'');
+  const seen = new Set();
+  let seq = "";
+  for(const ch of prep + EN_ALPHA.replace('J','')){
+    if(!seen.has(ch)){ seen.add(ch); seq += ch; }
+  }
+  const grid = [];
+  for(let r=0;r<5;r++) grid.push(seq.slice(r*5,r*5+5).split(''));
+  return grid;
+}
+function findPos(grid, ch){
+  for(let r=0;r<5;r++){ const c = grid[r].indexOf(ch); if(c!==-1) return [r,c]; }
+  return null;
+}
+function playfairPrepare(text){
+  let s = text.toUpperCase().replace(/J/g,'I').replace(/[^A-Z]/g,'');
+  let pairs = [];
+  let i = 0;
+  while(i < s.length){
+    let a = s[i];
+    let b = (i+1 < s.length) ? s[i+1] : 'X';
+    if(a === b){ pairs.push([a,'X']); i += 1; }
+    else { pairs.push([a,b]); i += 2; }
+  }
+  if(pairs.length && pairs[pairs.length-1][1] === undefined) pairs[pairs.length-1][1] = 'X';
+  return pairs;
+}
+function playfairCipher(text, key, decrypt){
+  if(!key || !key.replace(/[^A-Za-z]/g,'')) throw new Error("محتاج كلمة مفتاحية بحروف إنجليزية");
+  const grid = playfairMatrix(key);
+  const pairs = playfairPrepare(text);
+  const dir = decrypt ? -1 : 1;
+  let out = "";
+  for(const [a,b] of pairs){
+    const [r1,c1] = findPos(grid,a);
+    const [r2,c2] = findPos(grid,b);
+    if(r1 === r2){
+      out += grid[r1][(c1+dir+5)%5];
+      out += grid[r2][(c2+dir+5)%5];
+    } else if(c1 === c2){
+      out += grid[(r1+dir+5)%5][c1];
+      out += grid[(r2+dir+5)%5][c2];
+    } else {
+      out += grid[r1][c2];
+      out += grid[r2][c1];
+    }
+  }
+  return out;
+}
+
+function parseHillKey(key){
+  const nums = key.trim().split(/\s+/).map(Number);
+  if(nums.length !== 4 || nums.some(isNaN)) throw new Error("المفتاح لازم يكون 4 أرقام صحيحة مفصولة بمسافات (مصفوفة 2×2)");
+  return nums;
+}
+function modInverse(a, m){
+  a = ((a % m) + m) % m;
+  for(let x=1;x<m;x++){ if((a*x) % m === 1) return x; }
+  return null;
+}
+function hillCipher(text, key, decrypt){
+  const [a,b,c,d] = parseHillKey(key);
+  let matrix = [[a,b],[c,d]];
+  const det = ((a*d - b*c) % 26 + 26) % 26;
+  const detInv = modInverse(det, 26);
+  if(decrypt){
+    if(detInv === null) throw new Error("المصفوفة دي مش قابلة للعكس — جرّب مفتاح تاني");
+    const adj = [[d,-b],[-c,a]];
+    matrix = adj.map(row => row.map(v => ((v*detInv)%26+26)%26));
+  }
+  let clean = text.toUpperCase().replace(/[^A-Z]/g,'');
+  if(clean.length % 2 !== 0) clean += 'X';
+  let out = "";
+  for(let i=0;i<clean.length;i+=2){
+    const v0 = EN_ALPHA.indexOf(clean[i]);
+    const v1 = EN_ALPHA.indexOf(clean[i+1]);
+    const r0 = (matrix[0][0]*v0 + matrix[0][1]*v1) % 26;
+    const r1 = (matrix[1][0]*v0 + matrix[1][1]*v1) % 26;
+    out += EN_ALPHA[(r0+26)%26] + EN_ALPHA[(r1+26)%26];
+  }
+  return out;
+}
+
+function simpleBlockCipher(text, key){
+  if(!key) throw new Error("محتاج مفتاح نصي لعملية XOR");
+  let out = "";
+  for(let i=0;i<text.length;i++){
+    out += String.fromCharCode(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+  }
+  return out;
+}
+function simpleBlockEncrypt(text, key){
+  const xored = simpleBlockCipher(text, key);
+  return btoa(unescape(encodeURIComponent(xored)));
+}
+function simpleBlockDecrypt(text, key){
+  const decoded = decodeURIComponent(escape(atob(text)));
+  return simpleBlockCipher(decoded, key);
+}
+
+/* ============================================================
+   Minimal educational RSA (small primes — NOT production safe)
+   ============================================================ */
+function isPrime(n){
+  if(n < 2) return false;
+  for(let i=2;i*i<=n;i++) if(n%i===0) return false;
+  return true;
+}
+function randPrime(min,max){
+  let n;
+  do { n = Math.floor(Math.random()*(max-min))+min; } while(!isPrime(n));
+  return n;
+}
+function gcd(a,b){ while(b){ [a,b] = [b, a%b]; } return a; }
+function modPow(base, exp, mod){
+  let result = 1n; base = BigInt(base) % BigInt(mod); exp = BigInt(exp); mod = BigInt(mod);
+  while(exp > 0n){
+    if(exp % 2n === 1n) result = (result*base) % mod;
+    exp = exp / 2n;
+    base = (base*base) % mod;
+  }
+  return result;
+}
+function generateRSA(){
+  let p = randPrime(100,300), q = randPrime(100,300);
+  while(q === p) q = randPrime(100,300);
+  const n = p*q;
+  const phi = (p-1)*(q-1);
+  let e = 3;
+  while(gcd(e, phi) !== 1) e += 2;
+  let d = 3;
+  while((d*e) % phi !== 1) d++;
+  return { n, e, d };
+}
+function rsaEncrypt(text, keys){
+  return text.split('').map(ch => modPow(ch.charCodeAt(0), keys.e, keys.n).toString()).join(' ');
+}
+function rsaDecrypt(text, keys){
+  return text.trim().split(/\s+/).map(num => {
+    const code = Number(modPow(BigInt(num), keys.d, keys.n));
+    return String.fromCharCode(code);
+  }).join('');
+}
+
+/* ============================================================
+   Key generation per algorithm
+   ============================================================ */
+genKeyBtn.addEventListener('click', () => {
+  switch(currentAlgo){
+    case 'caesar':
+      keyInput.value = String(Math.floor(Math.random()*25)+1);
+      break;
+    case 'substitution': {
+      const arr = EN_ALPHA.split('');
+      for(let i=arr.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+      keyInput.value = arr.join('');
+      break;
+    }
+    case 'playfair': {
+      const words = ["CIPHER","SECURE","SHADOW","ORACLE","VECTOR","PRISM"];
+      keyInput.value = words[Math.floor(Math.random()*words.length)];
+      break;
+    }
+    case 'hill': {
+      let a,b,c,d,det;
+      do {
+        a=Math.floor(Math.random()*25); b=Math.floor(Math.random()*25);
+        c=Math.floor(Math.random()*25); d=Math.floor(Math.random()*25);
+        det = ((a*d-b*c)%26+26)%26;
+      } while(modInverse(det,26)===null);
+      keyInput.value = `${a} ${b} ${c} ${d}`;
+      break;
+    }
+    case 'simpleblock': {
+      const arr = new Uint8Array(8);
+      crypto.getRandomValues(arr);
+      keyInput.value = Array.from(arr, b => b.toString(16).padStart(2,'0')).join('');
+      break;
+    }
+    case 'aes': case 'des': case '3des': {
+      const arr = new Uint8Array(16);
+      crypto.getRandomValues(arr);
+      keyInput.value = Array.from(arr, b => b.toString(16).padStart(2,'0')).join('');
+      break;
+    }
+    case 'rsa':
+      rsaKeys = generateRSA();
+      setStatus(`تم توليد مفاتيح RSA — n=${rsaKeys.n}, e=${rsaKeys.e}, d=${rsaKeys.d}`, 'ok');
+      break;
+  }
+});
+
+/* ============================================================
+   Main encrypt / decrypt dispatch
+   ============================================================ */
+function runCipher(decrypt){
+  const text = document.getElementById('input-text').value;
+  const key = keyInput.value;
+  const outputEl = document.getElementById('output-text');
+
+  if(!text){ setStatus("اكتب نص الأول", 'err'); return; }
+
+  withLoader(() => {
+    try{
+      let result = "";
+      switch(currentAlgo){
+        case 'caesar':
+          if(!key) throw new Error("محتاج رقم إزاحة");
+          result = caesarShift(text, key, decrypt);
+          break;
+        case 'substitution':
+          result = substitutionCipher(text, key, decrypt);
+          break;
+        case 'playfair':
+          result = playfairCipher(text, key, decrypt);
+          break;
+        case 'hill':
+          result = hillCipher(text, key, decrypt);
+          break;
+        case 'simpleblock':
+          result = decrypt ? simpleBlockDecrypt(text, key) : simpleBlockEncrypt(text, key);
+          break;
+        case 'aes':
+          if(!key) throw new Error("محتاج كلمة مرور");
+          result = decrypt
+            ? CryptoJS.AES.decrypt(text, key).toString(CryptoJS.enc.Utf8)
+            : CryptoJS.AES.encrypt(text, key).toString();
+          if(decrypt && !result) throw new Error("فشل فك التشفير — تأكد من كلمة المرور والنص المشفّر");
+          break;
+        case 'des':
+          if(!key) throw new Error("محتاج كلمة مرور");
+          result = decrypt
+            ? CryptoJS.DES.decrypt(text, key).toString(CryptoJS.enc.Utf8)
+            : CryptoJS.DES.encrypt(text, key).toString();
+          if(decrypt && !result) throw new Error("فشل فك التشفير — تأكد من كلمة المرور والنص المشفّر");
+          break;
+        case '3des':
+          if(!key) throw new Error("محتاج كلمة مرور");
+          result = decrypt
+            ? CryptoJS.TripleDES.decrypt(text, key).toString(CryptoJS.enc.Utf8)
+            : CryptoJS.TripleDES.encrypt(text, key).toString();
+          if(decrypt && !result) throw new Error("فشل فك التشفير — تأكد من كلمة المرور والنص المشفّر");
+          break;
+        case 'rsa':
+          if(!rsaKeys) throw new Error("اضغط زر (توليد) الأول عشان تجهّز مفاتيح RSA");
+          result = decrypt ? rsaDecrypt(text, rsaKeys) : rsaEncrypt(text, rsaKeys);
+          break;
+      }
+      outputEl.value = result;
+      setStatus(decrypt ? "تم فك التشفير بنجاح" : "تم التشفير بنجاح", 'ok');
+    } catch(err){
+      outputEl.value = "";
+      setStatus(err.message || "حصل خطأ غير متوقع", 'err');
+    }
+  });
+}
+
+document.getElementById('encrypt-btn').addEventListener('click', () => runCipher(false));
+document.getElementById('decrypt-btn').addEventListener('click', () => runCipher(true));
+
+document.getElementById('copy-btn').addEventListener('click', () => {
+  const out = document.getElementById('output-text');
+  if(!out.value){ setStatus("مفيش نتيجة للنسخ", 'err'); return; }
+  navigator.clipboard.writeText(out.value).then(() => {
+    setStatus("تم النسخ للحافظة", 'ok');
+  });
+});
+</script>
+</body>
+</html>
